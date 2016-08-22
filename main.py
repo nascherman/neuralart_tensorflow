@@ -2,24 +2,95 @@ import tensorflow as tf
 import numpy as np
 import scipy.io
 import scipy.misc
-import os
+import os, logging, sys, getopt
 
+logging.basicConfig(filename='logfile.log', filemode='w', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
-IMAGE_W = 800 
-IMAGE_H = 600 
-CONTENT_IMG =  './images/Taipei101.jpg'
-STYLE_IMG = './images/StarryNight.jpg'
-OUTOUT_DIR = './results'
-OUTPUT_IMG = 'results.png'
-VGG_MODEL = 'imagenet-vgg-verydeep-19.mat'
-INI_NOISE_RATIO = 0.7
-STYLE_STRENGTH = 500
-ITERATION = 5000
+try:
+  opts, args = getopt.getopt(sys.argv[1:], 'hw:i:s:O:o:v:n:s:I:', [
+      'width=',
+      'height=',
+      'input=',
+      'style=',
+      'outfolder=',
+      'out=',
+      'vgg=',
+      'noise=',
+      'strength=',
+      'iteration='
+    ])
+except getopt.GetoptError:
+    print 'main.py -i <inputfile> -s <style> -w <width> -h <height>'
+    sys.exit(2)
+for opt, arg in opts:
+  if opt == '-H':
+    print 'main.py -i <inputfile> -s <style> -w <width> -h <height>'
+    sys.exit()
+  elif opt in ("-w", "--width"):
+    IMAGE_W = int(arg)
+  elif opt in ("-h", "--height"):   
+    IMAGE_H = int(arg)
+  elif opt in ('-i', '--input'):
+    CONTENT_IMG = arg
+  elif opt in('-s', '--style'):
+    STYLE_IMG = arg
+  elif opt in('-O', '--outfolder'):
+    OUTOUT_DIR = arg
+  elif opt in('-o', '--out'):
+    OUTPUT_IMG = arg
+  elif opt in('-v', '--vgg'):
+    VGG_MODEL = arg
+  elif opt in('-n', '--noise'):
+    INI_NOISE_RATIO = arg
+  elif opt in('-S', '--strength'):
+    STYLE_STRENGTH = arg
+  elif opt in('-I', '--iteration'):
+    ITERATION = arg
+
+try: 
+  IMAGE_W
+except NameError:
+  IMAGE_W = 800
+try:
+  IMAGE_H
+except NameError:
+  IMAGE_H = 600
+try:
+  CONTENT_IMG
+except NameError:
+  CONTENT_IMG =  './images/Taipei101.jpg'
+try:
+  STYLE_IMG
+except NameError:
+  STYLE_IMG = './images/StarryNight.jpg'
+try: 
+  OUTOUT_DIR
+except NameError:
+  OUTOUT_DIR = './results'
+try:
+  OUTPUT_IMG
+except NameError:
+  OUTPUT_IMG = 'results.png'
+try:
+  VGG_MODEL
+except NameError:
+  VGG_MODEL = 'imagenet-vgg-verydeep-19.mat'
+try:
+  INI_NOISE_RATIO
+except NameError:
+  INI_NOISE_RATIO = 0.7
+try:
+ STYLE_STRENGTH
+except NameError:
+  STYLE_STRENGTH = 500
+try:
+  ITERATION
+except NameError:
+  ITERATION = 5000
 
 CONTENT_LAYERS =[('conv4_2',1.)]
 STYLE_LAYERS=[('conv1_1',1.),('conv2_1',1.5),('conv3_1',2.),('conv4_1',2.5),('conv5_1',3.)]
-
-
 MEAN_VALUES = np.array([123, 117, 104]).reshape((1,1,1,3))
 
 def build_net(ntype, nin, nwb=None):
@@ -70,7 +141,6 @@ def build_content_loss(p, x):
   loss = (1./(2* N**0.5 * M**0.5 )) * tf.reduce_sum(tf.pow((x - p),2))  
   return loss
 
-
 def gram_matrix(x, area, depth):
   x1 = tf.reshape(x,(area,depth))
   g = tf.matmul(tf.transpose(x1), x1)
@@ -89,8 +159,6 @@ def build_style_loss(a, x):
   loss = (1./(4 * N**2 * M**2)) * tf.reduce_sum(tf.pow((G - A),2))
   return loss
 
-
-
 def read_image(path):
   image = scipy.misc.imread(path)
   image = image[np.newaxis,:IMAGE_H,:IMAGE_W,:] 
@@ -103,9 +171,9 @@ def write_image(path, image):
   image = np.clip(image, 0, 255).astype('uint8')
   scipy.misc.imsave(path, image)
 
-
 def main():
   net = build_vgg19(VGG_MODEL)
+  logging.info('start session')
   sess = tf.Session()
   sess.run(tf.initialize_all_variables())
   noise_img = np.random.uniform(-20, 20, (1, IMAGE_H, IMAGE_W, 3)).astype('float32')
@@ -130,7 +198,9 @@ def main():
   if not os.path.exists(OUTOUT_DIR):
       os.mkdir(OUTOUT_DIR)
 
+  logging.info('start iterations')
   for i in range(ITERATION):
+    logging.info('iteration ' + str(i))
     sess.run(train)
     if i%100 ==0:
       result_img = sess.run(net['input'])
@@ -139,6 +209,6 @@ def main():
   
   write_image(os.path.join(OUTOUT_DIR,OUTPUT_IMG),result_img)
   
-
 if __name__ == '__main__':
+  logging.info('start main process')
   main()
